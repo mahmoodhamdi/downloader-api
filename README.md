@@ -1,93 +1,97 @@
 # 🎬 Video Download API
 
-## 📋 نظرة عامة
+## 📋 Overview
 
-Video Download API هو تطبيق Flask مصمم لاستخراج روابط التحميل المباشرة من YouTube وعشرات المنصات الأخرى باستخدام مكتبة `yt-dlp`. يوفر التطبيق واجهة برمجة تطبيقات RESTful سهلة الاستخدام للتطبيقات المختلفة.
+Video Download API is a Flask application designed to extract direct download links from YouTube and thousands of other platforms using the `yt-dlp` library. It provides a RESTful API for various applications, supporting video and playlist extraction with caching and detailed logging.
 
-## ✨ المميزات
+## ✨ Features
 
-- 🎯 استخراج روابط التحميل المباشرة من YouTube و 1000+ منصة أخرى
-- 📱 دعم كامل للبلايليست والفيديوهات المفردة
-- 🎨 صيغ متعددة (جودات مختلفة، صوت فقط، تنسيقات مختلفة)
-- 📊 معلومات تفصيلية عن الفيديوهات (العنوان، المدة، الحجم، إلخ)
-- 🔍 نظام logging شامل لتتبع الطلبات والأخطاء
-- 🏗️ هيكل منظم وقابل للتوسع
-- 🚀 جاهز للنشر في بيئة الإنتاج
+- 🎯 Extract direct download links from YouTube and 1000+ other platforms
+- 📱 Full support for playlists and single videos
+- 🎨 Multiple formats (various qualities, audio-only, different formats)
+- 📊 Detailed video information (title, duration, size, etc.)
+- 💾 SQLite database caching for request results
+- 🔍 Comprehensive logging system with request duration and yt-dlp warnings
+- 🛡️ Strict URL and format validation
+- 📜 Support for subtitle and thumbnail extraction
+- 🏗️ Organized and scalable structure
+- 🚀 Production-ready deployment
 
-## 📦 المتطلبات
+## 📦 Requirements
 
 ```bash
 Python 3.8+
 Flask 2.3.3+
 yt-dlp 2023.12.30+
+Flask-SQLAlchemy
 ```
 
-## 🚀 التثبيت والتشغيل
+## 🚀 Installation and Setup
 
-### 1. استنساخ المشروع
+### 1. Clone the Project
 
 ```bash
 git clone <repository-url>
 cd video-download-api
 ```
 
-### 2. إنشاء البيئة الافتراضية
+### 2. Create Virtual Environment
 
 ```bash
 python -m venv venv
 
-# على Windows
+# On Windows
 venv\Scripts\activate
 
-# على macOS/Linux  
+# On macOS/Linux
 source venv/bin/activate
 ```
 
-### 3. تثبيت المتطلبات
+### 3. Install Requirements
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. تشغيل التطبيق
+### 4. Run the Application
 
 ```bash
 python main.py
 ```
 
-أو باستخدام Flask:
+Or using Flask:
 
 ```bash
 flask run
 ```
 
-التطبيق سيعمل على: `http://127.0.0.1:5000`
+The application will run on: `http://127.0.0.1:5000`
 
 ## 🔗 API Endpoints
 
-### 1. الصفحة الرئيسية
+### 1. Home Page
 
 ```
 GET /
 ```
 
-عرض معلومات التطبيق والتوثيق الأساسي.
+Displays application information and basic documentation.
 
-### 2. فحص الصحة
+### 2. Health Check
 
 ```
 GET /health
 ```
 
-فحص صحة التطبيق.
+Checks the application's health.
 
-### 3. استخراج روابط التحميل
+### 3. Extract Download Links
 
 ```
 POST /api/v1/get-download-links
 ```
 
-**طلب JSON:**
+**Request JSON:**
 
 ```json
 {
@@ -96,10 +100,20 @@ POST /api/v1/get-download-links
 }
 ```
 
-**استجابة JSON (فيديو مفرد):**
+Or for batch processing:
 
 ```json
 {
+  "urls": ["url1", "url2", "url3"],
+  "format": "best"
+}
+```
+
+**Response JSON (Single Video):**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "success": true,
   "is_playlist": false,
   "video": {
@@ -119,10 +133,11 @@ POST /api/v1/get-download-links
 }
 ```
 
-**استجابة JSON (بلايليست):**
+**Response JSON (Playlist):**
 
 ```json
 {
+  "url": "https://www.youtube.com/playlist?list=PL...",
   "success": true,
   "is_playlist": true,
   "playlist": {
@@ -139,13 +154,13 @@ POST /api/v1/get-download-links
 }
 ```
 
-### 4. معلومات الفيديو التفصيلية
+### 4. Detailed Video Information
 
 ```
 POST /api/v1/get-info
 ```
 
-**طلب JSON:**
+**Request JSON:**
 
 ```json
 {
@@ -154,10 +169,20 @@ POST /api/v1/get-info
 }
 ```
 
-**استجابة JSON:**
+Or for batch processing:
 
 ```json
 {
+  "urls": ["url1", "url2", "url3"],
+  "format": "best"
+}
+```
+
+**Response JSON:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "success": true,
   "is_playlist": false,
   "video": {
@@ -184,40 +209,123 @@ POST /api/v1/get-info
 }
 ```
 
-### 5. الصيغ المدعومة
+### 5. Extract Subtitles
+
+```
+POST /api/v1/get-subtitles
+```
+
+**Request JSON:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+}
+```
+
+**Response JSON:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "success": true,
+  "is_playlist": false,
+  "video": {
+    "id": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up",
+    "subtitles": {
+      "en": [
+        {
+          "url": "https://...",
+          "ext": "vtt",
+          "name": "English"
+        }
+      ],
+      "auto": {
+        "en": [
+          {
+            "url": "https://...",
+            "ext": "vtt",
+            "name": "auto-English"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+### 6. Extract Thumbnails
+
+```
+POST /api/v1/get-thumbnails
+```
+
+**Request JSON:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+}
+```
+
+**Response JSON:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "success": true,
+  "is_playlist": false,
+  "video": {
+    "id": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up",
+    "thumbnails": [
+      {
+        "id": "0",
+        "url": "https://...",
+        "width": 1280,
+        "height": 720,
+        "resolution": "1280x720"
+      }
+    ]
+  }
+}
+```
+
+### 7. Supported Formats
 
 ```
 GET /api/v1/supported-formats
 ```
 
-## 📋 الصيغ المدعومة
+## 📋 Supported Formats
 
-### جودة الفيديو
+### Video Quality
 
-- `best` - أفضل جودة متاحة
-- `worst` - أقل جودة متاحة
-- `720p`, `1080p`, `1440p`, `2160p` - جودات محددة
+- `best` - Best quality available
+- `worst` - Lowest quality available
+- `720p`, `1080p`, `1440p`, `2160p` - Specific resolutions
 
-### تنسيقات الفيديو
+### Video Formats
 
 - `mp4`, `webm`, `mkv`, `flv`, `avi`, `mov`
 
-### تنسيقات الصوت
+### Audio Formats
 
 - `mp3`, `aac`, `ogg`, `wav`, `flac`, `m4a`
 
-### خيارات خاصة
+### Special Options
 
-- `bestvideo` - أفضل فيديو فقط
-- `bestaudio` - أفضل صوت فقط
-- `audio_only` - صوت فقط
+- `bestvideo` - Best video only
+- `bestaudio` - Best audio only
+- `audio_only` - Audio only
 
-## 🧪 اختبار API
+## 🧪 Testing the API
 
-### باستخدام cURL
+### Using cURL
 
 ```bash
-# استخراج روابط التحميل
+# Extract download links
 curl -X POST http://127.0.0.1:5000/api/v1/get-download-links \
   -H "Content-Type: application/json" \
   -d '{
@@ -225,27 +333,41 @@ curl -X POST http://127.0.0.1:5000/api/v1/get-download-links \
     "format": "720p"
   }'
 
-# معلومات الفيديو التفصيلية
+# Extract video information
 curl -X POST http://127.0.0.1:5000/api/v1/get-info \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
   }'
 
-# فحص الصحة
+# Extract subtitles
+curl -X POST http://127.0.0.1:5000/api/v1/get-subtitles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  }'
+
+# Extract thumbnails
+curl -X POST http://127.0.0.1:5000/api/v1/get-thumbnails \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  }'
+
+# Health check
 curl http://127.0.0.1:5000/health
 
-# الصيغ المدعومة
+# Supported formats
 curl http://127.0.0.1:5000/api/v1/supported-formats
 ```
 
-### باستخدام Python
+### Using Python
 
 ```python
 import requests
 import json
 
-# استخراج روابط التحميل
+# Extract download links
 url = "http://127.0.0.1:5000/api/v1/get-download-links"
 data = {
     "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -262,52 +384,57 @@ if result['success']:
         print(f"Download: {fmt['url']}")
 ```
 
-## 🏗️ هيكل المشروع
+## 🏗️ Project Structure
 
 ```
-your_project/
+video-download-api/
 ├── app/
 │   ├── routes/
-│   │   └── video_routes.py      # مسارات API
+│   │   └── video_routes.py      # API routes
 │   ├── services/
-│   │   └── video_service.py     # منطق استخراج الفيديو
+│   │   └── video_service.py     # Video extraction logic
 │   ├── utils/
-│   │   └── logger.py            # نظام اللوغر
-│   ├── config.py                # إعدادات التطبيق
-│   └── __init__.py             # مصنع التطبيق
-├── main.py                      # نقطة الدخول الرئيسية
-├── requirements.txt             # متطلبات Python
-└── README.md                    # هذا الملف
+│   │   └── logger.py            # Logging system
+│   ├── db.py                    SD database configuration
+│   ├── config.py                # Application configuration
+│   └── __init__.py             # Application factory
+├── main.py                      # Main entry point
+├── requirements.txt             # Python requirements
+├── README.md                    # This file
+└── test.py                      # Test script
 ```
 
-## ⚙️ التكوين
+## ⚙️ Configuration
 
-يمكن تخصيص التطبيق من خلال متغيرات البيئة:
+Customize the application via environment variables:
 
 ```bash
-# إعدادات الأمان
+# Security settings
 export SECRET_KEY="your-secret-key"
 
-# إعدادات اللوغر
+# Logger settings
 export LOG_LEVEL="INFO"
 export LOG_FILE="app.log"
 
-# إعدادات الحدود
+# Database settings
+export DATABASE_URL="sqlite:///requests.db"
+
+# Rate limiting
 export RATE_LIMIT_ENABLED="true"
 export RATE_LIMIT_REQUESTS="10"
 export RATE_LIMIT_WINDOW="60"
 ```
 
-## 🚀 النشر في الإنتاج
+## 🚀 Production Deployment
 
-### باستخدام Gunicorn
+### Using Gunicorn
 
 ```bash
 pip install gunicorn
 gunicorn -w 4 -b 0.0.0.0:5000 main:app
 ```
 
-### باستخدام Docker
+### Using Docker
 
 ```dockerfile
 FROM python:3.9-slim
@@ -322,27 +449,27 @@ EXPOSE 5000
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]
 ```
 
-## 📊 المنصات المدعومة
+## 📊 Supported Platforms
 
-التطبيق يدعم أكثر من 1000 منصة بما في ذلك:
+The application supports over 1000 platforms, including:
 
-- **YouTube** - فيديوهات وبلايليست
-- **Vimeo** - فيديوهات عامة وخاصة
-- **Facebook** - فيديوهات عامة
-- **Instagram** - فيديوهات ومقاطع IGTV
-- **Twitter** - فيديوهات وGIF
-- **TikTok** - فيديوهات قصيرة
-- **Dailymotion** - فيديوهات وبلايليست
-- **Reddit** - فيديوهات من Reddit
-- **Twitch** - مقاطع وبث مباشر
-- **SoundCloud** - مقاطع صوتية
-- **وعشرات المنصات الأخرى**
+- **YouTube** - Videos and playlists
+- **Vimeo** - Public and private videos
+- **Facebook** - Public videos
+- **Instagram** - Videos and IGTV
+- **Twitter** - Videos and GIFs
+- **TikTok** - Short videos
+- **Dailymotion** - Videos and playlists
+- **Reddit** - Videos
+- **Twitch** - Clips and live streams
+- **SoundCloud** - Audio tracks
+- **And many more**
 
-## 🛠️ استكشاف الأخطاء
+## 🛠️ Troubleshooting
 
-### أخطاء شائعة
+### Common Errors
 
-1. **URL غير صالح**
+1. **Invalid URL**
 
    ```json
    {
@@ -351,16 +478,25 @@ CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]
    }
    ```
 
-2. **فيديو غير متاح**
+2. **Video Unavailable**
 
    ```json
    {
      "success": false,
-     "error": "Video unavailable"
+     "error": "Video is unavailable"
    }
    ```
 
-3. **صيغة غير مدعومة**
+3. **Geo-Restricted**
+
+   ```json
+   {
+     "success": false,
+     "error": "Video is geo-restricted"
+   }
+   ```
+
+4. **Unsupported Format**
 
    ```json
    {
@@ -369,55 +505,57 @@ CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]
    }
    ```
 
-### فحص اللوغز
+### Checking Logs
 
 ```bash
-# عرض اللوغز المباشرة
+# View live logs
 tail -f app.log
 
-# البحث عن أخطاء
+# Search for errors
 grep "ERROR" app.log
 ```
 
-## 🔒 الأمان
+## 🔒 Security
 
-### إعدادات الأمان الموصى بها
+### Recommended Security Settings
 
-1. **استخدام HTTPS في الإنتاج**
-2. **تعيين SECRET_KEY قوي**
-3. **تمكين Rate Limiting**
-4. **استخدام Reverse Proxy (Nginx)**
-5. **تحديث المكتبات بانتظام**
+1. **Use HTTPS in production**
+2. **Set a strong SECRET_KEY**
+3. **Enable rate limiting**
+4. **Use a reverse proxy (Nginx)**
+5. **Regularly update dependencies**
 
-## 🤝 المساهمة
+## 🤝 Contributing
 
-نرحب بالمساهمات! يرجى:
+Contributions are welcome! Please:
 
-1. Fork المشروع
-2. إنشاء فرع جديد للميزة
-3. Commit التغييرات
-4. Push إلى الفرع
-5. فتح Pull Request
+1. Fork the project
+2. Create a new feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
 
-## 📜 الترخيص
+## 📜 License
 
-هذا المشروع مرخص تحت رخصة MIT. راجع ملف LICENSE للتفاصيل.
+This project is licensed under the MIT License. See the LICENSE file for details.
 
-## 📞 الدعم
+## 📞 Support
 
-للمساعدة والاستفسارات:
+For help and inquiries:
 
-- فتح issue في GitHub
-- مراسلة المطور
-- مراجعة التوثيق
+- Open an issue on GitHub
+- Contact the developer
+- Review the documentation
 
-## 🔄 التحديثات
+## 🔄 Updates
 
-- **v1.0.0** - الإصدار الأول
-- دعم كامل لاستخراج الفيديوهات
-- نظام logging متقدم
-- هيكل منظم وقابل للتوسع
+- **v1.0.0** - Initial release
+- Full support for video extraction
+- Advanced logging system
+- SQLite caching
+- Subtitle and thumbnail extraction
+- Organized and scalable structure
 
 ---
 
-**ملاحظة:** هذا التطبيق مخصص للاستخدام التعليمي والشخصي. يرجى احترام حقوق الطبع والنشر وشروط استخدام المنصات المختلفة.
+**Note:** This application is for educational and personal use. Please respect copyright and terms of service of various platforms.

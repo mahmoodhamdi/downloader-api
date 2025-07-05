@@ -4,16 +4,21 @@ Main application entry point for Video Download API
 """
 
 from app import create_app
+from app.db import db
 from app.utils.logger import setup_logger
 
-# إعداد اللوغر
+# Set up logger
 logger = setup_logger()
 
 def main():
     """
-    إنشاء وتشغيل تطبيق Flask
+    Create and run the Flask application
     """
     app = create_app()
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
     
     logger.info("Starting Video Download API...")
     logger.info("API Documentation: http://127.0.0.1:5000/")

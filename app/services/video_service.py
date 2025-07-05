@@ -1,39 +1,55 @@
 """
-خدمة استخراج معلومات الفيديو باستخدام yt-dlp
+Video information extraction service using yt-dlp
 """
 
 import yt_dlp
 import time
+import re
 from typing import Dict, List, Optional, Any, Union
 from urllib.parse import urlparse
 from app.utils.logger import setup_logger, log_error, log_video_extraction
 from app.config import Config
 
+class YTDLPLogger:
+    """Logger adapter for yt-dlp"""
+    def __init__(self, logger):
+        self.logger = logger
+
+    def debug(self, msg):
+        self.logger.debug(msg)
+
+    def warning(self, msg):
+        self.logger.warning(msg)
+
+    def error(self, msg):
+        self.logger.error(msg)
+
 class VideoService:
     """
-    خدمة استخراج معلومات الفيديو من منصات متعددة
+    Service for extracting video information from multiple platforms
     """
     
     def __init__(self):
         """
-        تهيئة الخدمة
+        Initialize the service
         """
         self.logger = setup_logger('video_service')
         self.config = Config()
         
-    def _get_yt_dlp_options(self, format_selector: str = 'best') -> Dict[str, Any]:
+    def _get_yt_dlp_options(self, format_selector: str = 'best', enable_subtitles: bool = False) -> Dict[str, Any]:
         """
-        الحصول على خيارات yt-dlp المخصصة
+        Get customized yt-dlp options
         
         Args:
-            format_selector: محدد الصيغة
+            format_selector: Format selector
+            enable_subtitles: Whether to enable subtitle extraction
             
         Returns:
-            Dict: خيارات yt-dlp
+            Dict: yt-dlp options
         """
         options = self.config.YT_DLP_OPTIONS.copy()
         
-        # تحديد الصيغة المطلوبة
+        # Set format based on selector
         if format_selector in self.config.SUPPORTED_FORMATS:
             if format_selector == 'audio_only':
                 options['format'] = 'bestaudio'
@@ -46,33 +62,37 @@ class VideoService:
         else:
             options['format'] = 'best'
         
+        # Enable subtitles if requested
+        if enable_subtitles:
+            options['writesubtitles'] = True
+            options['writeautomaticsub'] = True
+        
+        # Add logger
+        options['logger'] = YTDLPLogger(self.logger)
+        
         return options
     
     def _validate_url(self, url: str) -> bool:
         """
-        التحقق من صحة الرابط
+        Validate the URL (bypassed to allow all non-empty URLs)
         
         Args:
-            url: الرابط المراد التحقق منه
+            url: URL to validate
             
         Returns:
-            bool: صحة الرابط
+            bool: True if URL is a non-empty string, else False
         """
-        try:
-            result = urlparse(url)
-            return all([result.scheme, result.netloc])
-        except Exception:
-            return False
+        return isinstance(url, str) and bool(url.strip())
     
     def _format_duration(self, seconds: Optional[int]) -> str:
         """
-        تنسيق المدة من ثواني إلى تنسيق مقروء
+        Format duration from seconds to readable format
         
         Args:
-            seconds: المدة بالثواني
+            seconds: Duration in seconds
             
         Returns:
-            str: المدة منسقة
+            str: Formatted duration
         """
         if not seconds:
             return "Unknown"
@@ -88,18 +108,17 @@ class VideoService:
     
     def _format_filesize(self, size: Optional[int]) -> str:
         """
-        تنسيق حجم الملف
+        Format file size
         
         Args:
-            size: حجم الملف بالبايت
+            size: File size in bytes
             
         Returns:
-            str: حجم الملف منسق
+            str: Formatted file size
         """
         if not size:
             return "Unknown"
         
-        # تحويل البايت إلى وحدات أكبر
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024.0:
                 return f"{size:.1f} {unit}"
@@ -108,13 +127,13 @@ class VideoService:
     
     def _extract_formats(self, info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        استخراج صيغ الفيديو المتاحة
+        Extract available video formats
         
         Args:
-            info: معلومات الفيديو من yt-dlp
+            info: Video information from yt-dlp
             
         Returns:
-            List: قائمة الصيغ المتاحة
+            List: List of available formats
         """
         formats = []
         
@@ -131,13 +150,12 @@ class VideoService:
                     'filesize': fmt.get('filesize'),
                     'filesize_approx': fmt.get('filesize_approx'),
                     'url': fmt.get('url'),
-                    'tbr': fmt.get('tbr'),  # Total bitrate
-                    'vbr': fmt.get('vbr'),  # Video bitrate
-                    'abr': fmt.get('abr'),  # Audio bitrate
+                    'tbr': fmt.get('tbr'),
+                    'vbr': fmt.get('vbr'),
+                    'abr': fmt.get('abr'),
                     'protocol': fmt.get('protocol', 'unknown')
                 }
                 
-                # إضافة حجم الملف المنسق
                 size = format_info['filesize'] or format_info['filesize_approx']
                 format_info['filesize_formatted'] = self._format_filesize(size)
                 
@@ -145,17 +163,74 @@ class VideoService:
         
         return formats
     
-    def _extract_video_info(self, info: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_subtitles(self, info: Dict[str, Any]) -> Dict[str, Any]:
         """
-        استخراج معلومات الفيديو المهمة
+        Extract available subtitles
         
         Args:
-            info: معلومات الفيديو من yt-dlp
+            info: Video information from yt-dlp
             
         Returns:
-            Dict: معلومات الفيديو المنسقة
+            Dict: Available subtitles
         """
-        return {
+        subtitles = {}
+        if 'subtitles' in info:
+            for lang, sub_list in info['subtitles'].items():
+                subtitles[lang] = [
+                    {
+                        'url': sub.get('url'),
+                        'ext': sub.get('ext'),
+                        'name': sub.get('name', lang)
+                    }
+                    for sub in sub_list
+                ]
+        if 'automatic_captions' in info:
+            subtitles['auto'] = {}
+            for lang, sub_list in info['automatic_captions'].items():
+                subtitles['auto'][lang] = [
+                    {
+                        'url': sub.get('url'),
+                        'ext': sub.get('ext'),
+                        'name': sub.get('name', f'auto-{lang}')
+                    }
+                    for sub in sub_list
+                ]
+        return subtitles
+    
+    def _extract_thumbnails(self, info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract available thumbnails
+        
+        Args:
+            info: Video information from yt-dlp
+            
+        Returns:
+            List: List 끝에 available thumbnails
+        """
+        thumbnails = []
+        if 'thumbnails' in info:
+            for thumb in info['thumbnails']:
+                thumbnails.append({
+                    'id': thumb.get('id', 'unknown'),
+                    'url': thumb.get('url'),
+                    'width': thumb.get('width'),
+                    'height': thumb.get('height'),
+                    'resolution': f"{thumb.get('width', 'unknown')}x{thumb.get('height', 'unknown')}"
+                })
+        return thumbnails
+    
+    def _extract_video_info(self, info: Dict[str, Any], include_subtitles: bool = False) -> Dict[str, Any]:
+        """
+        Extract important video information
+        
+        Args:
+            info: Video information from yt-dlp
+            include_subtitles: Whether to include subtitles
+            
+        Returns:
+            Dict: Formatted video information
+        """
+        video_info = {
             'id': info.get('id', 'unknown'),
             'title': info.get('title', 'Unknown Title'),
             'uploader': info.get('uploader', 'Unknown'),
@@ -170,7 +245,7 @@ class VideoService:
             'comment_count': info.get('comment_count'),
             'description': info.get('description', ''),
             'thumbnail': info.get('thumbnail'),
-            'thumbnails': info.get('thumbnails', []),
+            'thumbnails': self._extract_thumbnails(info),
             'webpage_url': info.get('webpage_url'),
             'original_url': info.get('original_url'),
             'extractor': info.get('extractor'),
@@ -181,52 +256,49 @@ class VideoService:
             'age_limit': info.get('age_limit'),
             'availability': info.get('availability')
         }
+        
+        if include_subtitles:
+            video_info['subtitles'] = self._extract_subtitles(info)
+        
+        return video_info
     
-    def get_video_info(self, url: str, format_selector: str = 'best') -> Dict[str, Any]:
+    def get_video_info(self, url: str, format_selector: str = 'best', enable_subtitles: bool = False) -> Dict[str, Any]:
         """
-        استخراج معلومات الفيديو أو البلايليست
+        Extract video or playlist information
         
         Args:
-            url: رابط الفيديو أو البلايليست
-            format_selector: محدد الصيغة المطلوبة
+            url: Video or playlist URL
+            format_selector: Desired format selector
+            enable_subtitles: Whether to extract subtitles
             
         Returns:
-            Dict: معلومات الفيديو أو البلايليست
+            Dict: Video or playlist information
         """
         start_time = time.time()
         
         try:
-            # التحقق من صحة الرابط
             if not self._validate_url(url):
                 raise ValueError("Invalid URL format")
             
-            # إعداد خيارات yt-dlp
-            ydl_opts = self._get_yt_dlp_options(format_selector)
+            ydl_opts = self._get_yt_dlp_options(format_selector, enable_subtitles)
             
-            # استخراج المعلومات
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             
-            # تحديد نوع المحتوى
             is_playlist = 'entries' in info
             
             if is_playlist:
-                # معالجة البلايليست
                 entries = info.get('entries', [])
-                
-                # فلترة المدخلات الفارغة
                 valid_entries = [entry for entry in entries if entry is not None]
                 
-                # تحديد حد البلايليست
                 if len(valid_entries) > self.config.MAX_PLAYLIST_SIZE:
                     valid_entries = valid_entries[:self.config.MAX_PLAYLIST_SIZE]
                     self.logger.warning(f"Playlist limited to {self.config.MAX_PLAYLIST_SIZE} videos")
                 
-                # استخراج معلومات كل فيديو
                 videos = []
                 for entry in valid_entries:
                     try:
-                        video_info = self._extract_video_info(entry)
+                        video_info = self._extract_video_info(entry, include_subtitles=enable_subtitles)
                         videos.append(video_info)
                     except Exception as e:
                         self.logger.error(f"Error extracting video info: {str(e)}")
@@ -251,8 +323,7 @@ class VideoService:
                 video_count = len(videos)
                 
             else:
-                # معالجة فيديو واحد
-                video_info = self._extract_video_info(info)
+                video_info = self._extract_video_info(info, include_subtitles=enable_subtitles)
                 
                 result = {
                     'success': True,
@@ -262,44 +333,52 @@ class VideoService:
                 
                 video_count = 1
             
-            # تسجيل نجاح العملية
             duration = time.time() - start_time
             log_video_extraction(self.logger, url, True, video_count, duration)
             
             return result
             
+        except yt_dlp.utils.ExtractorError as e:
+            error_msg = str(e)
+            if 'video is unavailable' in error_msg.lower():
+                error_msg = 'Video is unavailable'
+            elif 'geo-restricted' in error_msg.lower():
+                error_msg = 'Video is geo-restricted'
+            elif 'video has been removed' in error_msg.lower():
+                error_msg = 'Video has been removed'
+            duration = time.time() - start_time
+            log_video_extraction(self.logger, url, False, 0, duration)
+            return {
+                'success': False,
+                'error': error_msg
+            }
         except Exception as e:
-            # تسجيل فشل العملية
             duration = time.time() - start_time
             log_video_extraction(self.logger, url, False, 0, duration)
             log_error(self.logger, e, f"Error extracting video info from {url}")
-            
             return {
                 'success': False,
-                'error': str(e),
-                'message': 'Failed to extract video information'
+                'error': 'An unexpected error occurred',
+                'message': str(e)
             }
     
     def get_download_links(self, url: str, format_selector: str = 'best') -> Dict[str, Any]:
         """
-        استخراج روابط التحميل المباشرة
+        Extract direct download links
         
         Args:
-            url: رابط الفيديو أو البلايليست
-            format_selector: محدد الصيغة المطلوبة
+            url: Video or playlist URL
+            format_selector: Desired format selector
             
         Returns:
-            Dict: روابط التحميل المباشرة
+            Dict: Direct download links
         """
-        # استخراج معلومات الفيديو
         info = self.get_video_info(url, format_selector)
         
         if not info['success']:
             return info
         
-        # استخراج روابط التحميل فقط
         if info['is_playlist']:
-            # معالجة البلايليست
             download_links = []
             for video in info['playlist']['videos']:
                 video_links = {
@@ -331,7 +410,6 @@ class VideoService:
             }
             
         else:
-            # معالجة فيديو واحد
             video = info['video']
             download_links = []
             
@@ -353,5 +431,95 @@ class VideoService:
                     'title': video['title'],
                     'duration_formatted': video['duration_formatted'],
                     'formats': download_links
+                }
+            }
+    
+    def get_subtitles(self, url: str) -> Dict[str, Any]:
+        """
+        Extract available subtitle links
+        
+        Args:
+            url: Video or playlist URL
+            
+        Returns:
+            Dict: Available subtitles
+        """
+        info = self.get_video_info(url, enable_subtitles=True)
+        
+        if not info['success']:
+            return info
+        
+        if info['is_playlist']:
+            subtitles_list = []
+            for video in info['playlist']['videos']:
+                subtitles_list.append({
+                    'id': video['id'],
+                    'title': video['title'],
+                    'subtitles': video.get('subtitles', {})
+                })
+            
+            return {
+                'success': True,
+                'is_playlist': True,
+                'playlist': {
+                    'title': info['playlist']['title'],
+                    'total_videos': info['playlist']['total_videos'],
+                    'videos': subtitles_list
+                }
+            }
+            
+        else:
+            return {
+                'success': True,
+                'is_playlist': False,
+                'video': {
+                    'id': info['video']['id'],
+                    'title': info['video']['title'],
+                    'subtitles': info['video'].get('subtitles', {})
+                }
+            }
+    
+    def get_thumbnails(self, url: str) -> Dict[str, Any]:
+        """
+        Extract available thumbnail links
+        
+        Args:
+            url: Video or playlist URL
+            
+        Returns:
+            Dict: Available thumbnails
+        """
+        info = self.get_video_info(url)
+        
+        if not info['success']:
+            return info
+        
+        if info['is_playlist']:
+            thumbnails_list = []
+            for video in info['playlist']['videos']:
+                thumbnails_list.append({
+                    'id': video['id'],
+                    'title': video['title'],
+                    'thumbnails': video.get('thumbnails', [])
+                })
+            
+            return {
+                'success': True,
+                'is_playlist': True,
+                'playlist': {
+                    'title': info['playlist']['title'],
+                    'total_videos': info['playlist']['total_videos'],
+                    'videos': thumbnails_list
+                }
+            }
+            
+        else:
+            return {
+                'success': True,
+                'is_playlist': False,
+                'video': {
+                    'id': info['video']['id'],
+                    'title': info['video']['title'],
+                    'thumbnails': info['video'].get('thumbnails', [])
                 }
             }

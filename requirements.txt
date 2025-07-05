@@ -1,5 +1,5 @@
-
 Flask
+flask-sqlalchemy
 yt-dlp
 requests
 python-dotenv

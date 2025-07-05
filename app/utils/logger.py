@@ -1,5 +1,5 @@
 """
-إعدادات نظام اللوغر للتطبيق
+Logging system configuration for the application
 """
 
 import logging
@@ -9,40 +9,40 @@ from typing import Optional
 
 def setup_logger(name: str = 'video_api', log_file: Optional[str] = None) -> logging.Logger:
     """
-    إعداد نظام اللوغر للتطبيق
+    Set up the application's logging system
     
     Args:
-        name: اسم اللوغر
-        log_file: مسار ملف اللوغ (اختياري)
+        name: Logger name
+        log_file: Path to log file (optional)
         
     Returns:
-        logging.Logger: كائن اللوغر المُعد
+        logging.Logger: Configured logger object
     """
     
-    # إنشاء اللوغر
+    # Create logger
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     
-    # تجنب إضافة متعددة للمعالجات
+    # Avoid adding multiple handlers
     if logger.handlers:
         return logger
     
-    # تنسيق الرسائل
+    # Message format
     formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # معالج الكونسول
+    # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
-    # معالج الملف (اختياري)
+    # File handler (optional)
     if log_file:
         try:
-            # إنشاء مجلد اللوغس إذا لم يكن موجوداً
+            # Create logs directory if it doesn't exist
             log_dir = os.path.dirname(log_file)
             if log_dir and not os.path.exists(log_dir):
                 os.makedirs(log_dir)
@@ -58,13 +58,13 @@ def setup_logger(name: str = 'video_api', log_file: Optional[str] = None) -> log
 
 def log_request(logger: logging.Logger, method: str, url: str, user_agent: str = None):
     """
-    تسجيل طلب HTTP
+    Log an HTTP request
     
     Args:
-        logger: كائن اللوغر
-        method: طريقة HTTP
-        url: الرابط المطلوب
-        user_agent: معلومات المتصفح
+        logger: Logger object
+        method: HTTP method
+        url: Requested URL
+        user_agent: Browser information
     """
     message = f"{method} {url}"
     if user_agent:
@@ -74,12 +74,12 @@ def log_request(logger: logging.Logger, method: str, url: str, user_agent: str =
 
 def log_error(logger: logging.Logger, error: Exception, context: str = None):
     """
-    تسجيل خطأ مع السياق
+    Log an error with context
     
     Args:
-        logger: كائن اللوغر
-        error: الخطأ
-        context: السياق الإضافي
+        logger: Logger object
+        error: Exception object
+        context: Additional context
     """
     message = f"Error: {str(error)}"
     if context:
@@ -90,14 +90,14 @@ def log_error(logger: logging.Logger, error: Exception, context: str = None):
 def log_video_extraction(logger: logging.Logger, url: str, success: bool, 
                         video_count: int = 0, duration: float = 0):
     """
-    تسجيل عملية استخراج الفيديو
+    Log video extraction operation
     
     Args:
-        logger: كائن اللوغر
-        url: رابط الفيديو
-        success: نجاح العملية
-        video_count: عدد الفيديوهات المستخرجة
-        duration: مدة العملية بالثواني
+        logger: Logger object
+        url: Video URL
+        success: Operation success status
+        video_count: Number of videos extracted
+        duration: Operation duration in seconds
     """
     status = "SUCCESS" if success else "FAILED"
     message = f"Video extraction {status} - URL: {url}"

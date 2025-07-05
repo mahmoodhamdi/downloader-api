@@ -1,5 +1,5 @@
 """
-إعدادات التطبيق
+Application configuration
 """
 
 import os
@@ -7,17 +7,19 @@ from datetime import timedelta
 
 class Config:
     """
-    كلاس إعدادات التطبيق الأساسي
+    Base application configuration class
     """
     
-    # إعدادات Flask الأساسية
+    # Flask basic settings
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///requests.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # إعدادات JSON
+    # JSON settings
     JSON_SORT_KEYS = False
     JSONIFY_PRETTYPRINT_REGULAR = True
     
-    # إعدادات yt-dlp
+    # yt-dlp settings
     YT_DLP_OPTIONS = {
         'format': 'best',
         'noplaylist': False,
@@ -26,7 +28,7 @@ class Config:
         'ignoreerrors': True,
         'no_warnings': False,
         'extract_flat': False,
-        'skip_download': True,  # عدم تحميل الملفات، فقط استخراج المعلومات
+        'skip_download': True,
         'writesubtitles': False,
         'writeautomaticsub': False,
         'subtitleslangs': ['ar', 'en'],
@@ -38,7 +40,7 @@ class Config:
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
-    # إعدادات الصيغ المدعومة
+    # Supported formats
     SUPPORTED_FORMATS = [
         'best', 'worst', 'bestvideo', 'worstvideo', 'bestaudio', 'worstaudio',
         '144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p',
@@ -46,15 +48,15 @@ class Config:
         'mp3', 'aac', 'ogg', 'wav', 'flac', 'm4a'
     ]
     
-    # إعدادات الحدود
-    MAX_PLAYLIST_SIZE = 50  # أقصى عدد فيديوهات في البلايليست
-    REQUEST_TIMEOUT = 60  # مهلة الطلب بالثواني
+    # Limit settings
+    MAX_PLAYLIST_SIZE = 50
+    REQUEST_TIMEOUT = 60
     
-    # إعدادات اللوغر
+    # Logger settings
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     LOG_FILE = os.environ.get('LOG_FILE', 'app.log')
     
-    # إعدادات الأمان
+    # Security settings
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')
     RATE_LIMIT_ENABLED = os.environ.get('RATE_LIMIT_ENABLED', 'false').lower() == 'true'
     RATE_LIMIT_REQUESTS = int(os.environ.get('RATE_LIMIT_REQUESTS', '10'))
@@ -62,19 +64,19 @@ class Config:
 
 class DevelopmentConfig(Config):
     """
-    إعدادات التطوير
+    Development configuration
     """
     DEBUG = True
     TESTING = False
 
 class ProductionConfig(Config):
     """
-    إعدادات الإنتاج
+    Production configuration
     """
     DEBUG = False
     TESTING = False
     
-    # إعدادات أمان إضافية للإنتاج
+    # Additional production security settings
     YT_DLP_OPTIONS = {
         **Config.YT_DLP_OPTIONS,
         'socket_timeout': 60,
@@ -85,12 +87,12 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     """
-    إعدادات الاختبار
+    Testing configuration
     """
     TESTING = True
     DEBUG = True
 
-# خريطة البيئات
+# Environment mapping
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
